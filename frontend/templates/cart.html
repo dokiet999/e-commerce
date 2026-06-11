@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Shopping Cart — eCommerceStore{% endblock %}
+
+{% block content %}
+<div id="cartContainer">
+    <div class="page-loading"><div class="spinner"></div></div>
+</div>
+
+<!-- CART RECOMMENDATIONS -->
+<div id="recCart" style="display:none;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let cartData = null;
+
+async function loadCart() {
+    const container = document.getElementById('cartContainer');
+    try {
+        cartData = await api.getCart();
+        renderCart(container);
+        // Load cart-based recommendations
+        if (cartData.items && cartData.items.length > 0) {
+            recommendations.loadCartRecommendations(cartData.items);
+        }
+    } catch (e) {
+        container.innerHTML = '<p style="text-align:center;padding:60px;color:#c62828;">Failed to load cart.</p>';
+    }
+}
+
+function renderCart(container) {
+    const items = cartData.items || [];
+    if (items.length === 0) {
+        container.innerHTML = `
+            <div class="cart-empty">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                <h2>Your cart is empty</h2>
+                <p>Looks like you haven't added anything yet.</p>
+                <a href="/" class="btn-shop">Start Shopping</a>
+            </div>
+        `;
+        return;
+    }
+
+    const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+    const totalPrice = items.reduce((s, i) => s + i.quantity * parseFloat(i.price_at_add), 0);
+
+    let itemsHtml = items.map(item => {
+        const subtotal = item.quantity * parseFloat(item.price_at_add);
+        return `
+        <div class="cart-item" data-id="${item.id}">
+            <div class="cart-item-img-placeholder">📦</div>
+            <div class="cart-item-info">
+                <h3>Product #${item.product_id}</h3>
+                <div class="item-price">${formatPrice(item.price_at_add)} each</div>
+                <div class="cart-item-actions">
+                    <div class="qty-control">
+                        <button onclick="changeQty(${item.id}, ${item.quantity - 1})">−</button>
+                        <span>${item.quantity}</span>
+                        <button onclick="changeQty(${item.id}, ${item.quantity + 1})">+</button>
+                    </div>
+                </div>
+                <button class="cart-item-remove" onclick="removeItem(${item.id})">Remove</button>
+            </div>
+            <div class="cart-item-right">
+                <div class="cart-item-subtotal">${formatPrice(subtotal)}</div>
+            </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="cart-page">
+            <div class="cart-items">
+                <div class="cart-header">
+                    <h1>Shopping Cart</h1>
+                    <span>${totalQty} item${totalQty !== 1 ? 's' : ''}</span>
+                </div>
+                ${itemsHtml}
+            </div>
+            <div class="cart-summary">
+                <h2>Order Summary</h2>
+                <div class="summary-row">
+                    <span>Items (${totalQty})</span>
+                    <span>${formatPrice(totalPrice)}</span>
+                </div>
+                <div class="summary-row">
+                    <span>Shipping</span>
+                    <span style="color:#2e7d32;">Free</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Order total</span>
+                    <span>${formatPrice(totalPrice)}</span>
+                </div>
+                <button class="btn-checkout" onclick="showToast('Checkout coming soon!', 'success')">Proceed to Checkout</button>
+            </div>
+        </div>
+    `;
+}
+
+async function changeQty(itemId, newQty) {
+    if (newQty < 1) {
+        await removeItem(itemId);
+        return;
+    }
+    try {
+        await api.updateCartItem(itemId, newQty);
+        await loadCart();
+        updateCartBadge();
+    } catch (e) {
+        showToast('Failed to update quantity', 'error');
+    }
+}
+
+async function removeItem(itemId) {
+    try {
+        const item = (cartData.items || []).find(i => i.id === itemId);
+        await api.removeCartItem(itemId);
+        if (item) tracker.trackRemoveFromCart(item.product_id, item.quantity, item.price_at_add);
+        showToast('Item removed', 'success');
+        await loadCart();
+        updateCartBadge();
+    } catch (e) {
+        showToast('Failed to remove item', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    tracker.trackPageView('cart');
+    loadCart();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Tư vấn AI — eCommerceStore{% endblock %}
+
+{% block content %}
+<div class="chat-page-container">
+    <div class="chat-page-header">
+        <h1>🤖 Tư vấn mua sắm AI</h1>
+        <p>Hỏi bất kỳ điều gì về sản phẩm, chính sách, hoặc cần gợi ý mua hàng!</p>
+        <div class="chat-page-features">
+            <span class="chat-feature-tag">💬 Tư vấn sản phẩm</span>
+            <span class="chat-feature-tag">🔗 Knowledge Graph</span>
+            <span class="chat-feature-tag">📊 Phân tích hành vi</span>
+            <span class="chat-feature-tag">🎯 Gợi ý cá nhân hóa</span>
+        </div>
+    </div>
+    <div class="chat-page-box">
+        <div class="chat-page-messages" id="chatPageMessages">
+            <div class="chat-msg chat-msg-assistant">
+                <div class="chat-msg-content">
+                    Xin chào! 👋 Tôi là trợ lý tư vấn mua sắm AI của eCommerceStore.<br>
+                    Tôi có thể giúp bạn:<br>
+                    • Tìm kiếm và gợi ý sản phẩm phù hợp<br>
+                    • Trả lời về chính sách đổi trả, vận chuyển<br>
+                    • So sánh sản phẩm và tư vấn mua hàng<br><br>
+                    Bạn cần tôi hỗ trợ gì?
+                </div>
+            </div>
+        </div>
+        <div class="chat-page-input-area">
+            <input type="text" id="chatPageInput" class="chat-page-input" placeholder="Nhập tin nhắn..." autocomplete="off">
+            <button id="chatPageSend" class="chat-page-send-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+        </div>
+    </div>
+    <button class="chat-page-clear" onclick="clearChatPage()">Xóa lịch sử chat</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let chatPageSessionId = localStorage.getItem('chat_session_id');
+const chatPageMessages = document.getElementById('chatPageMessages');
+const chatPageInput = document.getElementById('chatPageInput');
+const chatPageSend = document.getElementById('chatPageSend');
+let chatPageLoading = false;
+
+// Load history on page load
+document.addEventListener('DOMContentLoaded', async () => {
+    if (chatPageSessionId) {
+        try {
+            const data = await api.getChatHistory(chatPageSessionId);
+            if (data.messages && data.messages.length > 0) {
+                chatPageMessages.innerHTML = '';
+                data.messages.forEach(msg => addChatPageMsg(msg.role, msg.content));
+            }
+        } catch(e) {}
+    }
+    chatPageInput.focus();
+});
+
+chatPageSend.addEventListener('click', sendChatPage);
+chatPageInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatPage();
+    }
+});
+
+async function sendChatPage() {
+    const msg = chatPageInput.value.trim();
+    if (!msg || chatPageLoading) return;
+    chatPageInput.value = '';
+    addChatPageMsg('user', msg);
+    chatPageLoading = true;
+    chatPageSend.disabled = true;
+
+    // Show loader
+    const loader = document.createElement('div');
+    loader.className = 'chat-msg chat-msg-assistant chat-loading';
+    loader.innerHTML = '<div class="chat-msg-content"><span class="chat-dots"><span>.</span><span>.</span><span>.</span></span></div>';
+    loader.id = 'cpLoader';
+    chatPageMessages.appendChild(loader);
+    chatPageMessages.scrollTop = chatPageMessages.scrollHeight;
+
+    try {
+        const data = await api.sendChatMessage(msg, chatPageSessionId);
+        chatPageSessionId = data.chat_session_id;
+        localStorage.setItem('chat_session_id', chatPageSessionId);
+        document.getElementById('cpLoader')?.remove();
+        addChatPageMsg('assistant', data.response, data.sources);
+    } catch(e) {
+        document.getElementById('cpLoader')?.remove();
+        addChatPageMsg('assistant', 'Xin lỗi, đã xảy ra lỗi. Vui lòng thử lại.');
+    }
+    chatPageLoading = false;
+    chatPageSend.disabled = false;
+}
+
+function addChatPageMsg(role, content, sources) {
+    const div = document.createElement('div');
+    div.className = `chat-msg chat-msg-${role}`;
+    let html = `<div class="chat-msg-content">${formatChatContent(content)}</div>`;
+
+    if (sources && sources.length) {
+        const productSources = sources.filter(s => s.product_name);
+        const graphSources = sources.filter(s => s.source_type === 'graph_qa');
+
+        if (productSources.length > 0) {
+            const cards = productSources.map(s => {
+                const link = s.product_id ? `/product/${s.product_id}/` : '#';
+                return `<a href="${link}" class="chat-product-card">
+                    <span class="chat-product-icon">📦</span>
+                    <span class="chat-product-name">${s.product_name}</span>
+                </a>`;
+            }).join('');
+            html += `<div class="chat-product-list">${cards}</div>`;
+        }
+
+        if (graphSources.length > 0 && graphSources[0].cypher) {
+            html += `<div class="chat-graph-badge" title="Cypher: ${graphSources[0].cypher}">
+                <span class="chat-graph-icon">🔗</span> Knowledge Graph
+            </div>`;
+        }
+    }
+
+    div.innerHTML = html;
+    chatPageMessages.appendChild(div);
+    chatPageMessages.scrollTop = chatPageMessages.scrollHeight;
+}
+
+function formatChatContent(text) {
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n- /g, '\n• ')
+        .replace(/\n/g, '<br>');
+}
+
+function clearChatPage() {
+    api.clearChat(chatPageSessionId).catch(() => {});
+    chatPageSessionId = null;
+    localStorage.removeItem('chat_session_id');
+    chatPageMessages.innerHTML = `
+        <div class="chat-msg chat-msg-assistant">
+            <div class="chat-msg-content">
+                Xin chào! 👋 Tôi là trợ lý tư vấn mua sắm AI của eCommerceStore.<br>
+                Bạn cần tôi hỗ trợ gì?
+            </div>
+        </div>`;
+    showToast('Đã xóa lịch sử chat', 'success');
+}
+</script>
+{% endblock %}

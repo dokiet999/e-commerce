@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecommerce-config
+  namespace: ecommerce
+data:
+  DEBUG: "False"
+  # Redis
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  # Database Host (external DB — change to your DB service ClusterIP or external host)
+  DB_HOST: "host.docker.internal"
+  POSTGRES_PORT: "5433"
+  MYSQL_PORT: "3306"
+  # Database names
+  AUTH_DB_NAME: "ecommerce_auth"
+  PRODUCT_DB_NAME: "ecommerce_products"
+  CART_DB_NAME: "ecommerce_cart"
+  ORDER_DB_NAME: "ecommerce_orders"
+  PAYMENT_DB_NAME: "ecommerce_payments"
+  INVENTORY_DB_NAME: "ecommerce_inventory"
+  NOTIFICATION_DB_NAME: "ecommerce_notifications"
+  REVIEW_DB_NAME: "ecommerce_reviews"
+  SHIPPING_DB_NAME: "ecommerce_shipping"
+  COUPON_DB_NAME: "ecommerce_coupons"
+  AI_DB_NAME: "ecommerce_ai"
+  # Service hosts (Kubernetes DNS names = service-name.namespace.svc.cluster.local)
+  AUTH_SERVICE_HOST: "auth-service"
+  AUTH_SERVICE_PORT: "8001"
+  PRODUCT_SERVICE_HOST: "product-service"
+  PRODUCT_SERVICE_PORT: "8002"
+  CART_SERVICE_HOST: "cart-service"
+  CART_SERVICE_PORT: "8003"
+  GATEWAY_HOST: "api-gateway"
+  GATEWAY_PORT: "8000"
+  ORDER_SERVICE_HOST: "order-service"
+  ORDER_SERVICE_PORT: "8005"
+  PAYMENT_SERVICE_HOST: "payment-service"
+  PAYMENT_SERVICE_PORT: "8006"
+  INVENTORY_SERVICE_HOST: "inventory-service"
+  INVENTORY_SERVICE_PORT: "8007"
+  NOTIFICATION_SERVICE_HOST: "notification-service"
+  NOTIFICATION_SERVICE_PORT: "8008"
+  REVIEW_SERVICE_HOST: "review-service"
+  REVIEW_SERVICE_PORT: "8009"
+  SHIPPING_SERVICE_HOST: "shipping-service"
+  SHIPPING_SERVICE_PORT: "8010"
+  COUPON_SERVICE_HOST: "coupon-service"
+  COUPON_SERVICE_PORT: "8011"
+  AI_SERVICE_HOST: "ai-service"
+  AI_SERVICE_PORT: "8004"
+  # Service URLs
+  AUTH_SERVICE_URL: "http://auth-service:8001"
+  PRODUCT_SERVICE_URL: "http://product-service:8002"
+  CART_SERVICE_URL: "http://cart-service:8003"
+  ORDER_SERVICE_URL: "http://order-service:8005"
+  PAYMENT_SERVICE_URL: "http://payment-service:8006"
+  INVENTORY_SERVICE_URL: "http://inventory-service:8007"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8008"
+  REVIEW_SERVICE_URL: "http://review-service:8009"
+  SHIPPING_SERVICE_URL: "http://shipping-service:8010"
+  COUPON_SERVICE_URL: "http://coupon-service:8011"
+  AI_SERVICE_URL: "http://ai-service:8004"
+  API_GATEWAY_URL: "http://api-gateway:8000"
+  # LLM (Ollama — must be accessible from the cluster)
+  LLM_PROVIDER: "ollama"
+  OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+  OLLAMA_MODEL: "gemma3:1b"
+  # Neo4j
+  NEO4J_URI: "bolt://neo4j:7687"
+  NEO4J_USER: "neo4j"

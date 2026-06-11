@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Product Detail — eCommerceStore{% endblock %}
+
+{% block content %}
+<div id="productDetail" class="product-detail">
+    <div class="skeleton" style="aspect-ratio:1;"></div>
+    <div>
+        <div class="skeleton" style="height:32px;width:80%;margin-bottom:12px;"></div>
+        <div class="skeleton" style="height:40px;width:40%;margin-bottom:16px;"></div>
+        <div class="skeleton" style="height:100px;margin-bottom:16px;"></div>
+        <div class="skeleton" style="height:48px;width:60%;"></div>
+    </div>
+</div>
+
+<!-- REVIEWS SECTION -->
+<div id="reviewSection" class="review-section">
+    <div class="review-header">
+        <h2>Đánh giá sản phẩm</h2>
+        <div id="reviewSummary" class="review-summary"></div>
+    </div>
+    <div id="reviewForm"></div>
+    <div id="reviewList" class="review-list">
+        <div class="skeleton" style="height:80px;margin-bottom:12px;"></div>
+        <div class="skeleton" style="height:80px;margin-bottom:12px;"></div>
+    </div>
+</div>
+
+<!-- SIMILAR PRODUCTS -->
+<div id="recSimilar" style="display:none;"></div>
+
+<!-- ALSO BOUGHT -->
+<div id="recAlsoBought" style="display:none;"></div>
+
+<!-- NEXT PRODUCT PREDICTION -->
+<div id="recNextProduct" style="display:none;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const container = document.getElementById('productDetail');
+    const productId = {{ product_id }};
+
+    try {
+        const p = await api.getProduct(productId);
+
+        // Track product view
+        tracker.trackProductView(productId, p.category || null, p.price);
+
+        let stockClass = 'in-stock', stockText = `${p.stock} available`;
+        if (p.stock === 0) { stockClass = 'out-of-stock'; stockText = 'Out of stock'; }
+        else if (p.stock <= 10) { stockClass = 'low-stock'; stockText = `Only ${p.stock} left — order soon`; }
+
+        const imgHtml = p.image_url
+            ? `<img src="${p.image_url}" alt="${p.name}" class="pd-image">`
+            : `<div class="pd-image-placeholder">📦</div>`;
+
+        container.innerHTML = `
+            <div>${imgHtml}</div>
+            <div class="pd-info">
+                <h1>${p.name}</h1>
+                ${p.category_name ? `<div class="pd-category">${p.category_name}</div>` : ''}
+                <div class="pd-price">${formatPrice(p.price)}</div>
+                <div class="pd-price-label">Price per item</div>
+                <div class="pd-stock ${stockClass}">${stockText}</div>
+                ${p.description ? `<div class="pd-description">${p.description}</div>` : ''}
+                <div class="pd-actions">
+                    <div class="pd-qty">
+                        <label>Qty:</label>
+                        <input type="number" id="addQty" value="1" min="1" max="${p.stock}">
+                    </div>
+                    <button class="btn-add-cart" id="btnAddCart" ${p.stock === 0 ? 'disabled' : ''}>
+                        ${p.stock === 0 ? 'Out of Stock' : 'Add to cart'}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('btnAddCart')?.addEventListener('click', async () => {
+            const qty = parseInt(document.getElementById('addQty').value) || 1;
+            try {
+                await api.addToCart(productId, qty);
+                tracker.trackAddToCart(productId, qty, p.price);
+                showToast('Added to cart!', 'success');
+                updateCartBadge();
+            } catch (e) {
+                showToast('Failed to add to cart', 'error');
+            }
+        });
+
+        // Load recommendations for this product
+        recommendations.loadProductRecommendations(productId);
+        recommendations.loadNextProductRecommendations(p);
+
+        // Load reviews
+        loadReviews(productId);
+
+    } catch (e) {
+        container.innerHTML = '<p style="text-align:center;padding:60px;color:#c62828;">Product not found.</p>';
+    }
+});
+
+/* ══════ REVIEW SYSTEM ══════ */
+function renderStars(rating, interactive = false) {
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+        const cls = i <= rating ? 'star filled' : 'star';
+        if (interactive) {
+            html += `<span class="${cls}" data-value="${i}" onclick="selectStar(${i})">★</span>`;
+        } else {
+            html += `<span class="${cls}">★</span>`;
+        }
+    }
+    return html;
+}
+
+function selectStar(value) {
+    document.getElementById('reviewRating').value = value;
+    document.querySelectorAll('#starPicker .star').forEach(s => {
+        s.classList.toggle('filled', parseInt(s.dataset.value) <= value);
+    });
+}
+
+function renderReviewForm(productId) {
+    const formContainer = document.getElementById('reviewForm');
+    if (!isLoggedIn()) {
+        formContainer.innerHTML = `
+            <div class="review-login-prompt">
+                <p>Vui lòng <a href="/login/">đăng nhập</a> để đánh giá sản phẩm.</p>
+            </div>
+        `;
+        return;
+    }
+    formContainer.innerHTML = `
+        <div class="review-form-card">
+            <h3>Viết đánh giá của bạn</h3>
+            <input type="hidden" id="reviewRating" value="0">
+            <div class="form-group">
+                <label>Đánh giá</label>
+                <div id="starPicker" class="star-picker">${renderStars(0, true)}</div>
+            </div>
+            <div class="form-group">
+                <label for="reviewTitle">Tiêu đề</label>
+                <input type="text" id="reviewTitle" placeholder="Tóm tắt đánh giá..." maxlength="200">
+            </div>
+            <div class="form-group">
+                <label for="reviewComment">Nhận xét</label>
+                <textarea id="reviewComment" rows="3" placeholder="Chia sẻ trải nghiệm của bạn..."></textarea>
+            </div>
+            <button class="btn-submit-review" onclick="submitReview(${productId})">Gửi đánh giá</button>
+        </div>
+    `;
+}
+
+async function submitReview(productId) {
+    const rating = parseInt(document.getElementById('reviewRating').value);
+    const title = document.getElementById('reviewTitle').value.trim();
+    const comment = document.getElementById('reviewComment').value.trim();
+
+    if (!rating || rating < 1 || rating > 5) {
+        showToast('Vui lòng chọn số sao đánh giá', 'error');
+        return;
+    }
+
+    try {
+        await api.createReview({ product_id: productId, rating, title, comment });
+        showToast('Đánh giá đã được gửi!', 'success');
+        loadReviews(productId);
+    } catch (e) {
+        const msg = e.data?.detail || e.data?.error || 'Không thể gửi đánh giá';
+        showToast(msg, 'error');
+    }
+}
+
+function renderSummary(summary) {
+    const container = document.getElementById('reviewSummary');
+    if (!summary || summary.total_reviews === 0) {
+        container.innerHTML = '<p class="no-reviews">Chưa có đánh giá nào.</p>';
+        return;
+    }
+    const avg = parseFloat(summary.average_rating).toFixed(1);
+    const dist = summary.rating_distribution || {};
+    let barsHtml = '';
+    for (let i = 5; i >= 1; i--) {
+        const count = dist[i] || 0;
+        const pct = summary.total_reviews > 0 ? (count / summary.total_reviews * 100) : 0;
+        barsHtml += `
+            <div class="rating-bar-row">
+                <span class="rating-bar-label">${i} ★</span>
+                <div class="rating-bar-track"><div class="rating-bar-fill" style="width:${pct}%"></div></div>
+                <span class="rating-bar-count">${count}</span>
+            </div>
+        `;
+    }
+    container.innerHTML = `
+        <div class="summary-overview">
+            <div class="summary-avg">${avg}</div>
+            <div class="summary-stars">${renderStars(Math.round(summary.average_rating))}</div>
+            <div class="summary-total">${summary.total_reviews} đánh giá</div>
+        </div>
+        <div class="summary-bars">${barsHtml}</div>
+    `;
+}
+
+function renderReviewList(reviews) {
+    const container = document.getElementById('reviewList');
+    if (!reviews || reviews.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    const userId = getUserInfo()?.id;
+    container.innerHTML = reviews.map(r => {
+        const date = new Date(r.created_at).toLocaleDateString('vi-VN');
+        const deleteBtn = (r.user_id === userId)
+            ? `<button class="review-delete" onclick="deleteReview(${r.id})">Xóa</button>`
+            : '';
+        return `
+            <div class="review-card">
+                <div class="review-card-top">
+                    <div class="review-card-stars">${renderStars(r.rating)}</div>
+                    ${r.is_verified_purchase ? '<span class="verified-badge">✓ Đã mua hàng</span>' : ''}
+                    <span class="review-date">${date}</span>
+                    ${deleteBtn}
+                </div>
+                ${r.title ? `<div class="review-card-title">${r.title}</div>` : ''}
+                ${r.comment ? `<div class="review-card-comment">${r.comment}</div>` : ''}
+                <div class="review-card-user">Người dùng #${r.user_id}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function deleteReview(reviewId) {
+    if (!confirm('Bạn có chắc muốn xóa đánh giá này?')) return;
+    try {
+        await api.deleteReview(reviewId);
+        showToast('Đã xóa đánh giá', 'success');
+        const productId = {{ product_id }};
+        loadReviews(productId);
+    } catch (e) {
+        showToast('Không thể xóa đánh giá', 'error');
+    }
+}
+
+async function loadReviews(productId) {
+    renderReviewForm(productId);
+    try {
+        const [summary, reviews] = await Promise.all([
+            api.getProductReviewSummary(productId),
+            api.getProductReviews(productId),
+        ]);
+        renderSummary(summary);
+        renderReviewList(reviews);
+    } catch (e) {
+        document.getElementById('reviewList').innerHTML = '';
+    }
+}
+</script>
+{% endblock %}

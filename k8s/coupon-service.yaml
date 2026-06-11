@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coupon-service
+  namespace: ecommerce
+  labels:
+    app: coupon-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coupon-service
+  template:
+    metadata:
+      labels:
+        app: coupon-service
+    spec:
+      containers:
+      - name: coupon-service
+        image: <your-dockerhub-username>/ecommerce-coupon-service:latest
+        ports:
+        - containerPort: 8011
+        envFrom:
+        - configMapRef:
+            name: ecommerce-config
+        - secretRef:
+            name: ecommerce-secret
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: 8011
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health/
+            port: 8011
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coupon-service
+  namespace: ecommerce
+spec:
+  type: ClusterIP
+  selector:
+    app: coupon-service
+  ports:
+  - port: 8011
+    targetPort: 8011
+    protocol: TCP

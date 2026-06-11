@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Register — eCommerceStore{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-card">
+        <h1>Create your account</h1>
+        <p class="sub">Shop deals you'll love</p>
+        <div class="form-error" id="regError"></div>
+        <div class="form-success" id="regSuccess"></div>
+        <form id="registerForm" onsubmit="return false;">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" class="form-input" required placeholder="Choose a username">
+            </div>
+            <div class="form-group">
+                <label for="regEmail">Email address</label>
+                <input type="email" id="regEmail" class="form-input" required placeholder="name@example.com">
+            </div>
+            <div class="form-group">
+                <label for="phone">Phone (optional)</label>
+                <input type="text" id="phone" class="form-input" placeholder="+1 234 567 890">
+            </div>
+            <div class="form-group">
+                <label for="regPassword">Password</label>
+                <input type="password" id="regPassword" class="form-input" required minlength="8" placeholder="At least 8 characters">
+            </div>
+            <div class="form-group">
+                <label for="regPassword2">Confirm password</label>
+                <input type="password" id="regPassword2" class="form-input" required placeholder="Repeat your password">
+            </div>
+            <button type="submit" class="btn-auth" id="regBtn">Create account</button>
+        </form>
+        <div class="auth-footer">
+            Already have an account? <a href="/login/">Sign in</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('registerForm').addEventListener('submit', async () => {
+    const errorEl = document.getElementById('regError');
+    const successEl = document.getElementById('regSuccess');
+    const btn = document.getElementById('regBtn');
+
+    errorEl.style.display = 'none';
+    successEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Creating account...';
+
+    const data = {
+        username: document.getElementById('username').value,
+        email: document.getElementById('regEmail').value,
+        phone: document.getElementById('phone').value,
+        password: document.getElementById('regPassword').value,
+        password2: document.getElementById('regPassword2').value,
+    };
+
+    if (data.password !== data.password2) {
+        errorEl.textContent = 'Passwords do not match';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+        return;
+    }
+
+    try {
+        await api.register(data);
+        successEl.textContent = 'Account created! Redirecting to sign in...';
+        successEl.style.display = 'block';
+        setTimeout(() => { window.location.href = '/login/'; }, 1500);
+    } catch (e) {
+        let msg = 'Registration failed';
+        if (e.data) {
+            const errors = Object.values(e.data).flat();
+            msg = errors.join(' ');
+        }
+        errorEl.textContent = msg;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+    }
+});
+</script>
+{% endblock %}

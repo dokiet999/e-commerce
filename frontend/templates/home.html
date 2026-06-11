@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}eCommerceStore — Shop the Best Deals{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<div class="hero">
+    <div class="hero-text">
+        <h1>Discover Deals on Everything</h1>
+        <p>Shop millions of items with fast shipping and buyer protection.</p>
+        <a href="#products" class="hero-btn">Explore Now</a>
+    </div>
+    <div class="hero-img">🛒</div>
+</div>
+
+<!-- PERSONALIZED RECOMMENDATIONS -->
+<div id="recPersonalized" style="display:none;"></div>
+
+<!-- AI SEARCH RECOMMENDATIONS -->
+<div id="recSearch" style="display:none;"></div>
+
+<!-- TRENDING -->
+<div id="recTrending" style="display:none;"></div>
+
+<!-- PRODUCTS -->
+<div class="section-header" id="products">
+    <h2 id="sectionTitle">Today's Deals</h2>
+</div>
+<div id="productGrid" class="product-grid">
+    <!-- Skeleton loading -->
+    <div class="skeleton" style="height:320px"></div>
+    <div class="skeleton" style="height:320px"></div>
+    <div class="skeleton" style="height:320px"></div>
+    <div class="skeleton" style="height:320px"></div>
+    <div class="skeleton" style="height:320px"></div>
+    <div class="skeleton" style="height:320px"></div>
+    <div class="skeleton" style="height:320px"></div>
+    <div class="skeleton" style="height:320px"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const grid = document.getElementById('productGrid');
+    const title = document.getElementById('sectionTitle');
+    const params = new URLSearchParams(window.location.search);
+    const searchQ = params.get('q') || '';
+    const catFilter = params.get('category') || '';
+
+    // Track page view
+    tracker.trackPageView('home');
+
+    try {
+        let products = await api.getProducts();
+
+        // Filter by search
+        if (searchQ) {
+            const q = searchQ.toLowerCase();
+            products = products.filter(p =>
+                p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)
+            );
+            title.textContent = `Results for "${searchQ}"`;
+        }
+
+        // Filter by category
+        if (catFilter) {
+            products = products.filter(p => String(p.category) === catFilter);
+            title.textContent = `Category Results`;
+        }
+
+        if (!searchQ && !catFilter) {
+            title.textContent = "Today's Deals";
+        }
+
+        grid.innerHTML = '';
+
+        if (products.length === 0) {
+            grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:40px;color:#555;">No products found.</p>';
+            return;
+        }
+
+        products.forEach(p => {
+            const stockText = p.stock > 10 ? '' : p.stock > 0 ? `Only ${p.stock} left` : 'Out of stock';
+            const stockClass = p.stock > 10 ? '' : p.stock > 0 ? 'low' : 'low';
+            const imgHtml = p.image_url
+                ? `<img src="${p.image_url}" alt="${p.name}" class="product-card-img">`
+                : `<div class="product-card-img-placeholder">📦</div>`;
+
+            const card = document.createElement('a');
+            card.href = `/product/${p.id}/`;
+            card.className = 'product-card';
+            card.innerHTML = `
+                ${imgHtml}
+                <div class="product-card-body">
+                    <div class="product-card-title">${p.name}</div>
+                    <div class="product-card-price">${formatPrice(p.price)}</div>
+                    ${stockText ? `<div class="product-card-stock ${stockClass}">${stockText}</div>` : ''}
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    } catch (e) {
+        grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:40px;color:#c62828;">Failed to load products. Please try again.</p>';
+    }
+
+    // Load recommendations
+    if (searchQ || catFilter) {
+        // User is searching — show AI-powered search recommendations
+        recommendations.loadSearchRecommendations(searchQ, catFilter);
+    } else {
+        // Home page — show personalized + trending
+        recommendations.loadHomeRecommendations();
+    }
+});
+</script>
+{% endblock %}

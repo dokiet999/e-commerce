@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}My Account — eCommerceStore{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+    <div class="profile-card" id="profileCard">
+        <div class="page-loading"><div class="spinner"></div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const card = document.getElementById('profileCard');
+
+    if (!isLoggedIn()) {
+        window.location.href = '/login/';
+        return;
+    }
+
+    try {
+        const user = await api.getProfile();
+        setUserInfo(user);
+
+        card.innerHTML = `
+            <h1>My Account</h1>
+            <div class="profile-info">
+                <div class="profile-label">Username</div>
+                <div class="profile-value">${user.username}</div>
+
+                <div class="profile-label">Email</div>
+                <div class="profile-value">${user.email}</div>
+
+                <div class="profile-label">Phone</div>
+                <div class="profile-value">${user.phone || '—'}</div>
+
+                <div class="profile-label">Address</div>
+                <div class="profile-value">${user.address || '—'}</div>
+
+                <div class="profile-label">Member since</div>
+                <div class="profile-value">${new Date(user.date_joined).toLocaleDateString()}</div>
+            </div>
+            <button class="btn-logout" onclick="logout()">Sign out</button>
+        `;
+    } catch (e) {
+        card.innerHTML = '<p style="text-align:center;padding:40px;color:#c62828;">Failed to load profile. Please sign in again.</p>';
+        api.clearTokens();
+    }
+});
+</script>
+{% endblock %}

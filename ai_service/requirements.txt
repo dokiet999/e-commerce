@@ -1,0 +1,20 @@
+-r ../requirements-common.txt
+psycopg2-binary>=2.9
+# Deep Learning
+torch>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+# LangChain RAG
+langchain>=0.2
+langchain-core>=0.2
+langchain-community>=0.2
+langchain-openai>=0.1
+langchain-ollama>=0.1
+langchain-google-genai>=2.1
+# Vector store & embeddings
+chromadb>=0.5
+langchain-chroma>=0.2
+langchain-huggingface>=0.1
+sentence-transformers>=3.0
+# Neo4j Knowledge Graph
+neo4j>=5.0

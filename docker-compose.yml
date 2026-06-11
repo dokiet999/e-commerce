@@ -1,0 +1,284 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: neo4j
+    ports:
+      - "7474:7474"   # Browser UI
+      - "7687:7687"   # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/neo4j_password
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api_gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./api_gateway:/app/api_gateway
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+      - auth-service
+      - product-service
+      - cart-service
+      - order-service
+      - payment-service
+      - inventory-service
+      - notification-service
+      - review-service
+      - shipping-service
+      - coupon-service
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth_service/Dockerfile
+    container_name: auth-service
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    volumes:
+      - ./auth_service:/app/auth_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: .
+      dockerfile: product_service/Dockerfile
+    container_name: product-service
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    volumes:
+      - ./product_service:/app/product_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: cart_service/Dockerfile
+    container_name: cart-service
+    ports:
+      - "8003:8003"
+    env_file:
+      - .env
+    volumes:
+      - ./cart_service:/app/cart_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai_service/Dockerfile
+    container_name: ai-service
+    ports:
+      - "8004:8004"
+    env_file:
+      - .env
+    volumes:
+      - ./ai_service:/app/ai_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+      - neo4j
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: frontend
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./frontend:/app/frontend
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
+    container_name: order-service
+    ports:
+      - "8005:8005"
+    env_file:
+      - .env
+    volumes:
+      - ./order_service:/app/order_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment_service/Dockerfile
+    container_name: payment-service
+    ports:
+      - "8006:8006"
+    env_file:
+      - .env
+    volumes:
+      - ./payment_service:/app/payment_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: inventory_service/Dockerfile
+    container_name: inventory-service
+    ports:
+      - "8007:8007"
+    env_file:
+      - .env
+    volumes:
+      - ./inventory_service:/app/inventory_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification_service/Dockerfile
+    container_name: notification-service
+    ports:
+      - "8008:8008"
+    env_file:
+      - .env
+    volumes:
+      - ./notification_service:/app/notification_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  review-service:
+    build:
+      context: .
+      dockerfile: review_service/Dockerfile
+    container_name: review-service
+    ports:
+      - "8009:8009"
+    env_file:
+      - .env
+    volumes:
+      - ./review_service:/app/review_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  shipping-service:
+    build:
+      context: .
+      dockerfile: shipping_service/Dockerfile
+    container_name: shipping-service
+    ports:
+      - "8010:8010"
+    env_file:
+      - .env
+    volumes:
+      - ./shipping_service:/app/shipping_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  coupon-service:
+    build:
+      context: .
+      dockerfile: coupon_service/Dockerfile
+    container_name: coupon-service
+    ports:
+      - "8011:8011"
+    env_file:
+      - .env
+    volumes:
+      - ./coupon_service:/app/coupon_service
+      - ./shared:/app/shared
+      - ./service_registry:/app/service_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
